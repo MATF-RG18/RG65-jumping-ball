@@ -3,9 +3,13 @@
 #include <GL/glut.h>
 #include <time.h>
 
+#define TIMER_ID 0
+#define TIMER_INTERVAL 20
+
 /* Deklaracije callback funkcija. */
 static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
+static void on_timer(int value);
 static void on_display(void);
 
 
@@ -14,8 +18,11 @@ void crtanje_postolja(void);
 void crtanje_lestvica(void);
 
 static double koordinata_x_loptice = 0, koordinata_y_loptice = -0.8, koordinata_z_loptice = 0;
-static double koordinata_x_lestvice = 0, koordinata_y_lestvice = -0.4, koordinata_z_lestvice = 0;
-
+static double koordinata_x_lestvice[1000], koordinata_y_lestvice[1000];
+static double koordinata_z_lestvice = 0;
+static double brzina[1000];
+static int window_width, window_height;
+static int animacija;
 int main(int argc, char **argv)
 {
     /* Inicijalizuje se GLUT. */
@@ -23,10 +30,28 @@ int main(int argc, char **argv)
     glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
 
     /* Kreira se prozor. */
-    glutInitWindowSize(600, 600);
+    glutInitWindowSize(700, 700);
     glutInitWindowPosition(100, 100);
     glutCreateWindow(argv[0]);
+        srand(time(NULL));
 
+    double pomeraj = 0.5;
+    unsigned int i = 0;
+    koordinata_y_lestvice[0] = -0.4;
+    for(i = 0; i<1000; i++){
+        if(i != 0)
+            koordinata_y_lestvice[i] = koordinata_y_lestvice[i-1] + pomeraj;
+        double randomBroj = rand()/(float)RAND_MAX;
+        int pozicija_x_koordinate;
+        brzina[i] = 0.03;
+        if(randomBroj >=0.5)
+            pozicija_x_koordinate = 1;
+        else
+            pozicija_x_koordinate = -1;
+        koordinata_x_lestvice[i] = 2*pozicija_x_koordinate*rand()/(float)RAND_MAX;
+    }
+    animacija = 0;
+    
     /* Registruju se callback funkcije. */
     glutKeyboardFunc(on_keyboard);
     glutReshapeFunc(on_reshape);
@@ -49,32 +74,67 @@ static void on_keyboard(unsigned char key, int x, int y)
         /* Zavrsava se program. */
         exit(0);
         break;
+    case 'g':
+    case 'G':
+        /* Pokrece se animacija. */
+        if (!animacija) {
+            glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
+            animacija = 1;
+        }
+        break;
     }
 }
 
-static void on_reshape(int width, int height)
-{
-    /* Podesava se viewport. */
-    glViewport(0, 0, width, height);
+static void on_reshape(int width, int height){
+    window_width = width;
+    window_height = height;
+}
 
-    /* Podesava se projekcija. */
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(30, (float) width / height, 1, 10);
+
+static void on_timer(int value)
+{
+    if (value != TIMER_ID)
+        return;
+    unsigned int i = 0;
+    for(i = 0; i<1000; i++){
+        koordinata_x_lestvice[i] += brzina[i];
+        double sirina = 1.2;
+        
+        if(koordinata_x_lestvice[i] + sirina/2 >= 2 || koordinata_x_lestvice[i] - sirina/2 <= -2)
+            brzina[i] *= -1;
+
+        
+    }
+    /* Forsira se ponovno iscrtavanje prozora. */
+        glutPostRedisplay();
+
+        /* Po potrebi se ponovo postavlja tajmer. */
+        if (animacija) {
+            glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
+        }
 }
 
 static void on_display(void)
 {
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     /* Podesava se vidna tacka. */
+    glViewport(0, 0, window_width, window_height);
+
+    /* Podesava se projekcija. */
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(30, (float) window_width / window_height, 1, 10);
+    
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
     gluLookAt(0, 0, 7, 
               0, 0, 0, 
               0, 1, 0);
-    
+    glEnable(GL_DEPTH_TEST);
     crtanje_loptice();
-    crtanje_postolja();
     crtanje_lestvica();
+
+    crtanje_postolja();
     /* Nova slika se salje na ekran. */
     glutSwapBuffers();
 }
@@ -103,11 +163,6 @@ void crtanje_loptice(){
 
     /* Koeficijent glatkosti materijala. */
     GLfloat shininess = 20;
-
-    /* Brise se prethodni sadrzaj prozora. */
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-
 
     /* Ukljucuje se osvjetljenje i podesavaju parametri svetla. */
     glEnable(GL_LIGHTING);
@@ -145,25 +200,15 @@ void crtanje_postolja(){
 }
 
 void crtanje_lestvica(){    
-    srand(time(NULL));
-
-    double pomeraj = 0.5;
-    unsigned i;
-    for(i = 0; i<1000; i++){
-        double randomBroj = rand()/(float)RAND_MAX;
-        int pozicija_x_koordinate;
-        if(randomBroj >=0.5)
-            pozicija_x_koordinate = 1;
-        else
-            pozicija_x_koordinate = -1;
+    glDisable(GL_LIGHTING);
+    unsigned int i = 0;
+    for(i=0; i<1000; i++){
         glPushMatrix();
             glColor3f(0.5, 0.35, 0.05);
-            glTranslatef(koordinata_x_lestvice+2*pozicija_x_koordinate*rand()/(float)RAND_MAX,
-                         koordinata_y_lestvice, koordinata_z_lestvice);
+            glTranslatef(koordinata_x_lestvice[i], koordinata_y_lestvice[i], koordinata_z_lestvice);
             glScalef(6, 0.5, 0);
             glutSolidCube(0.2);
         glPopMatrix();
-        koordinata_y_lestvice += pomeraj;
     }
 }
 
