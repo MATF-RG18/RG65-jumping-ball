@@ -4,6 +4,7 @@
 #include <time.h>
 
 #define TIMER_ID 0
+#define TIMER_ID1 1
 #define TIMER_INTERVAL 20
 
 /* Deklaracije callback funkcija. */
@@ -17,12 +18,17 @@ void crtanje_loptice(void);
 void crtanje_postolja(void);
 void crtanje_lestvica(void);
 
-static double koordinata_x_loptice = 0, koordinata_y_loptice = -0.8, koordinata_z_loptice = 0;
-static double koordinata_x_lestvice[1000], koordinata_y_lestvice[1000];
-static double koordinata_z_lestvice = 0;
+static double koordinata_x_loptice = 0, koordinata_y_loptice = -0.8, koordinata_z_loptice = 1000;
+static double koordinata_x_lestvice[1000], koordinata_z_lestvice[1000];
+static double koordinata_y_lestvice = -0.8;
 static double brzina[1000];
+static double brzina_loptice = 0.015;
+static double dubina;
+
 static int window_width, window_height;
-static int animacija;
+static int kretanje_lestvica;
+static int nivo;
+
 int main(int argc, char **argv)
 {
     /* Inicijalizuje se GLUT. */
@@ -33,14 +39,17 @@ int main(int argc, char **argv)
     glutInitWindowSize(700, 700);
     glutInitWindowPosition(100, 100);
     glutCreateWindow(argv[0]);
-        srand(time(NULL));
-
-    double pomeraj = 0.5;
+    
+    srand(time(NULL));
+    
+    nivo = 0;
+    dubina = 1007;    
+    double pomeraj = 1.5;
     unsigned int i = 0;
-    koordinata_y_lestvice[0] = -0.4;
+    koordinata_z_lestvice[0] = 999;
     for(i = 0; i<1000; i++){
         if(i != 0)
-            koordinata_y_lestvice[i] = koordinata_y_lestvice[i-1] + pomeraj;
+            koordinata_z_lestvice[i] = koordinata_z_lestvice[i-1] - pomeraj;
         double randomBroj = rand()/(float)RAND_MAX;
         int pozicija_x_koordinate;
         brzina[i] = 0.03;
@@ -50,7 +59,7 @@ int main(int argc, char **argv)
             pozicija_x_koordinate = -1;
         koordinata_x_lestvice[i] = 2*pozicija_x_koordinate*rand()/(float)RAND_MAX;
     }
-    animacija = 0;
+    kretanje_lestvica = 0;
     
     /* Registruju se callback funkcije. */
     glutKeyboardFunc(on_keyboard);
@@ -77,10 +86,20 @@ static void on_keyboard(unsigned char key, int x, int y)
     case 'g':
     case 'G':
         /* Pokrece se animacija. */
-        if (!animacija) {
+        if (!kretanje_lestvica) {
             glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
-            animacija = 1;
+            kretanje_lestvica = 1;
         }
+        break;
+    case 'a':
+    case 'A':
+        koordinata_x_loptice -= brzina_loptice;
+        glutPostRedisplay();
+        break;
+    case 'd':
+    case 'D':
+        koordinata_x_loptice += brzina_loptice;
+        glutPostRedisplay();
         break;
     }
 }
@@ -105,13 +124,11 @@ static void on_timer(int value)
 
         
     }
-    /* Forsira se ponovno iscrtavanje prozora. */
-        glutPostRedisplay();
+    glutPostRedisplay();
 
-        /* Po potrebi se ponovo postavlja tajmer. */
-        if (animacija) {
-            glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
-        }
+    if (kretanje_lestvica) {
+        glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
+    }
 }
 
 static void on_display(void)
@@ -123,11 +140,11 @@ static void on_display(void)
     /* Podesava se projekcija. */
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(30, (float) window_width / window_height, 1, 10);
+    gluPerspective(30, (float) window_width / window_height, 1, 20);
     
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
-    gluLookAt(0, 0, 7, 
+    gluLookAt(0, 0, dubina, 
               0, 0, 0, 
               0, 1, 0);
     glEnable(GL_DEPTH_TEST);
@@ -141,7 +158,7 @@ static void on_display(void)
 
 void crtanje_loptice(){
     /* Pozicija svetla (u pitanju je direkcionalno svetlo). */
-    GLfloat pozicija_svetla[] = { 1, 1, 1, 0 };
+    GLfloat pozicija_svetla[] = { 1, 1, 1007, 0 };
 
     /* Ambijentalna boja svetla. */
     GLfloat ambijentalno_svetlo[] = { 0.35, 0.35, 0.35, 1 };
@@ -178,6 +195,12 @@ void crtanje_loptice(){
     glMaterialfv(GL_FRONT, GL_SPECULAR, spekularna_refleksija);
     glMaterialf(GL_FRONT, GL_SHININESS, shininess);
     
+    if(koordinata_x_loptice + 0.15 >= 1.9 || koordinata_x_loptice - 0.15 <= -1.9){
+        koordinata_x_loptice = 0;
+        koordinata_y_loptice = -0.8;
+        koordinata_z_loptice = 1000;
+    }
+    
     glPushMatrix();
         glTranslatef(koordinata_x_loptice, koordinata_y_loptice, koordinata_z_loptice);
         glutSolidSphere(0.15, 500, 500);
@@ -188,14 +211,47 @@ void crtanje_loptice(){
 
 void crtanje_postolja(){
     glDisable(GL_LIGHTING);
+    GLfloat pozicija_svetla[] = { 1, 200, 1007, 1 };
+
+    /* Ambijentalna boja svetla. */
+    GLfloat ambijentalno_svetlo[] = { 0.35, 0.35, 0.35, 1 };
+
+    /* Difuzna boja svetla. */
+    GLfloat difuzno_svetlo[] = { 0.75, 0.75, 0.75, 1 };
+
+    /* Spekularna boja svetla. */
+    GLfloat spekularno_svetlo[] = { 0.9, 0.9, 0.9, 1 };
+
+    /* Koeficijenti ambijentalne refleksije materijala. */
+    GLfloat ambijentalna_refleksija[] = { 0.0, 1.0, 0.0, 1 };
+
+    /* Koeficijenti difuzne refleksije materijala. */
+    GLfloat difuzna_refleksija[] = { 0.0, 0.6, 0.0, 1 };
+
+    /* Koeficijenti spekularne refleksije materijala. */
+    GLfloat spekularna_refleksija[] = { 1, 1, 1, 1 };
+
+    /* Koeficijent glatkosti materijala. */
+    GLfloat shininess = 40;
+
+    /* Ukljucuje se osvjetljenje i podesavaju parametri svetla. */
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glLightfv(GL_LIGHT0, GL_POSITION, pozicija_svetla);
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambijentalno_svetlo);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, difuzno_svetlo);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, spekularno_svetlo);
+
+    /* Podesavaju se parametri materijala. */
+    glMaterialfv(GL_FRONT, GL_AMBIENT, ambijentalna_refleksija);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE, difuzna_refleksija);
+    glMaterialfv(GL_FRONT, GL_SPECULAR, spekularna_refleksija);
+    glMaterialf(GL_FRONT, GL_SHININESS, shininess);
+
     glPushMatrix();
-        glBegin(GL_QUADS);
-        glColor3f(0.0, 0.9, 0.0);
-        glVertex2f(-2.0, -7.0);
-        glVertex2f(2.0, -7.0);
-        glVertex2f(2.0, -0.9);
-        glVertex2f(-2.0, -0.9);
-        glEnd();    
+            glTranslatef(0, -1.45, 1000);
+            glScalef(3.6, 1, 1);
+            glutSolidCube(1);
     glPopMatrix();
 }
 
@@ -203,10 +259,32 @@ void crtanje_lestvica(){
     glDisable(GL_LIGHTING);
     unsigned int i = 0;
     for(i=0; i<1000; i++){
+        GLfloat pozicija_svetla[] = { 1, 100, 1007, 0 };
+        GLfloat ambijentalno_svetlo[] = { 0.35, 0.35, 0.35, 1 };
+        GLfloat difuzno_svetlo[] = { 0.7, 0.7, 0.7, 1 };
+        GLfloat spekularno_svetlo[] = { 0.9, 0.9, 0.9, 1 };
+        
+        GLfloat ambijentalna_refleksija[] = { 0.647059, 0.364706, 0.164706, 1 };
+        GLfloat difuzna_refleksija[] = { 0.7, 0.55, 0.25, 1 };
+        GLfloat spekularna_refleksija[] = { 1, 1, 1, 1 };
+
+        GLfloat shininess = 20;
+        
+        glEnable(GL_LIGHTING);
+        glEnable(GL_LIGHT0);
+        glLightfv(GL_LIGHT0, GL_POSITION, pozicija_svetla);
+        glLightfv(GL_LIGHT0, GL_AMBIENT, ambijentalno_svetlo);
+        glLightfv(GL_LIGHT0, GL_DIFFUSE, difuzno_svetlo);
+        glLightfv(GL_LIGHT0, GL_SPECULAR, spekularno_svetlo);
+
+        glMaterialfv(GL_FRONT, GL_AMBIENT, ambijentalna_refleksija);
+        glMaterialfv(GL_FRONT, GL_DIFFUSE, difuzna_refleksija);
+        glMaterialfv(GL_FRONT, GL_SPECULAR, spekularna_refleksija);
+        glMaterialf(GL_FRONT, GL_SHININESS, shininess);
+        
         glPushMatrix();
-            glColor3f(0.5, 0.35, 0.05);
-            glTranslatef(koordinata_x_lestvice[i], koordinata_y_lestvice[i], koordinata_z_lestvice);
-            glScalef(6, 0.5, 0);
+            glTranslatef(koordinata_x_lestvice[i], koordinata_y_lestvice, koordinata_z_lestvice[i]);
+            glScalef(6, 0.5, 3);
             glutSolidCube(0.2);
         glPopMatrix();
     }
