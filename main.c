@@ -11,6 +11,7 @@
 static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
 static void on_timer(int value);
+static void skok_loptice(int value);
 static void on_display(void);
 
 
@@ -18,19 +19,22 @@ void crtanje_loptice(void);
 void crtanje_postolja(void);
 void crtanje_lestvica(void);
 
-static double koordinata_x_loptice = 0, koordinata_y_loptice = -0.8, koordinata_z_loptice = 1000;
+static double koordinata_x_loptice = 0, koordinata_y_loptice = -0.8, koordinata_z_loptice = 1000.5;
 static double koordinata_x_lestvice[1000], koordinata_z_lestvice[1000];
-static double koordinata_y_lestvice = -0.8;
+static double koordinata_y_lestvice = -1;
 static double brzina[1000];
 static double brzina_loptice = 0.015;
+static double brzina_z, brzina_y;
+
 static double dubina;
 
 static int window_width, window_height;
-static int kretanje_lestvica;
+static int kretanje_lestvica, kretanje_loptice;
 static int nivo;
+static int loptica_na_lestvici;
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv){
+    
     /* Inicijalizuje se GLUT. */
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
@@ -60,6 +64,11 @@ int main(int argc, char **argv)
         koordinata_x_lestvice[i] = 2*pozicija_x_koordinate*rand()/(float)RAND_MAX;
     }
     kretanje_lestvica = 0;
+    kretanje_loptice = 0;
+    loptica_na_lestvici = 0;
+    
+    brzina_y = 0.10;
+    brzina_z = -0.1;
     
     /* Registruju se callback funkcije. */
     glutKeyboardFunc(on_keyboard);
@@ -76,8 +85,8 @@ int main(int argc, char **argv)
     return 0;
 }
 
-static void on_keyboard(unsigned char key, int x, int y)
-{
+static void on_keyboard(unsigned char key, int x, int y){
+    
     switch (key) {
     case 27:
         /* Zavrsava se program. */
@@ -101,6 +110,14 @@ static void on_keyboard(unsigned char key, int x, int y)
         koordinata_x_loptice += brzina_loptice;
         glutPostRedisplay();
         break;
+    case 'w':
+    case 'W':
+        if(!kretanje_loptice) {
+            loptica_na_lestvici = 0;
+            glutTimerFunc(TIMER_INTERVAL, skok_loptice, TIMER_ID1);
+            kretanje_loptice = 1;
+        }
+        break;
     }
 }
 
@@ -109,9 +126,49 @@ static void on_reshape(int width, int height){
     window_height = height;
 }
 
+static void skok_loptice(int value){
+    
+    if (value != TIMER_ID1)
+        return;
+    dubina -= 0.1;
+    if(koordinata_z_loptice - koordinata_z_lestvice[nivo] > 0.75){
+        koordinata_y_loptice += brzina_y - 0.001;
+        koordinata_z_loptice += brzina_z;
+    }
+    else{
+        koordinata_y_loptice -= brzina_y - 0.001;
+        koordinata_z_loptice += brzina_z;
+    }
+    
+    if (koordinata_z_loptice - koordinata_z_lestvice[nivo] < 0.01) {
+        kretanje_loptice = 0;
+        
+        koordinata_y_loptice -= brzina_y;
+        if(!(koordinata_x_loptice <= koordinata_x_lestvice[nivo] + 0.6 && 
+           koordinata_x_loptice >= koordinata_x_lestvice[nivo] - 0.6)){
+            nivo = 0;
+            koordinata_x_loptice = 0;
+            koordinata_y_loptice = -0.8; 
+            koordinata_z_loptice = 1000.5;
+            dubina = 1007;
+            loptica_na_lestvici = 0;
+            glutPostRedisplay();
+        }
+        else{
+            nivo += 1;
+            loptica_na_lestvici = 1;
+            glutPostRedisplay();
+        }
+    }
+    else{
+        glutPostRedisplay();
+        glutTimerFunc(TIMER_INTERVAL, skok_loptice, TIMER_ID1);
+    }
+    
+}
 
-static void on_timer(int value)
-{
+static void on_timer(int value){
+    
     if (value != TIMER_ID)
         return;
     unsigned int i = 0;
@@ -124,8 +181,11 @@ static void on_timer(int value)
 
         
     }
+    if(loptica_na_lestvici){
+        koordinata_x_loptice += brzina[nivo-1];
+    }
     glutPostRedisplay();
-
+    
     if (kretanje_lestvica) {
         glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
     }
@@ -198,7 +258,10 @@ void crtanje_loptice(){
     if(koordinata_x_loptice + 0.15 >= 1.9 || koordinata_x_loptice - 0.15 <= -1.9){
         koordinata_x_loptice = 0;
         koordinata_y_loptice = -0.8;
-        koordinata_z_loptice = 1000;
+        koordinata_z_loptice = 1000.5;
+        loptica_na_lestvici = 0;
+        dubina = 1007;
+        nivo = 0;
     }
     
     glPushMatrix();
@@ -249,8 +312,8 @@ void crtanje_postolja(){
     glMaterialf(GL_FRONT, GL_SHININESS, shininess);
 
     glPushMatrix();
-            glTranslatef(0, -1.45, 1000);
-            glScalef(3.6, 1, 1);
+            glTranslatef(0, -1.45, 1000.2);
+            glScalef(3.6, 1, 1.2);
             glutSolidCube(1);
     glPopMatrix();
 }
