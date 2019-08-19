@@ -7,10 +7,11 @@
 
 
 #define FILENAME0 "more.bmp"
+
 #define TIMER_ID 0
 #define TIMER_ID1 1
 #define TIMER_INTERVAL 20
-
+#define MAX_BROJ_KARAKTERA 256
 
 
 /* Deklaracije callback funkcija. */
@@ -20,6 +21,8 @@ static void on_timer(int value);
 static void skok_loptice(int value);
 static void on_display(void);
 static void postavi_teksture(void);
+void dodajTekst(void);
+static void inicijalizacija(void);
 
 void crtanje_loptice(void);
 void crtanje_postolja(void);
@@ -29,13 +32,13 @@ void crtanje_lestvica(void);
 static GLuint names[2];
 
 
-static double koordinata_x_loptice = 0, koordinata_y_loptice = -0.8, koordinata_z_loptice = 1000.5;
+static double koordinata_x_loptice, koordinata_y_loptice, koordinata_z_loptice;
 static double koordinata_x_lestvice[1000], koordinata_z_lestvice[1000];
-static double koordinata_y_lestvice = -1;
+static double koordinata_y_lestvice;
 static double brzina[1000];
-static double brzina_lestvice = 0.03;
+static double brzina_lestvice;
 
-static double brzina_loptice = 0.015;
+static double brzina_loptice;
 static double brzina_z, brzina_y;
 static double sirina;
         
@@ -44,6 +47,8 @@ static double dubina;
 static int window_width, window_height;
 static int kretanje_lestvica, kretanje_loptice;
 static int nivo;
+static int najbolji_rezultat;
+static int izgubio;
 static int loptica_na_lestvici;
 
 int main(int argc, char **argv){
@@ -57,8 +62,36 @@ int main(int argc, char **argv){
     glutInitWindowPosition(100, 100);
     glutCreateWindow(argv[0]);
     
+    inicijalizacija();
+    /* Registruju se callback funkcije. */
+    glutKeyboardFunc(on_keyboard);
+    glutReshapeFunc(on_reshape);
+    glutDisplayFunc(on_display);
+
+    /* Obavlja se OpenGL inicijalizacija. */
+    glClearColor(0.74902, 0.847059, 0.847059, 0);
+    glEnable(GL_DEPTH_TEST);
+    
+    postavi_teksture();
+
+    /* Program ulazi u glavnu petlju. */
+    glutMainLoop();
+
+    return 0;
+}
+
+static void inicijalizacija(){
+
     srand(time(NULL));
     
+    koordinata_x_loptice = 0;
+    koordinata_y_loptice = -0.8;
+    koordinata_z_loptice = 1000.5;
+    koordinata_y_lestvice = -1;
+    brzina_lestvice = 0.03;
+
+    brzina_loptice = 0.015;
+    izgubio = 0;
     nivo = 0;
     dubina = 1007;    
     double pomeraj = 1.5;
@@ -93,23 +126,6 @@ int main(int argc, char **argv){
     
     brzina_y = 0.06;
     brzina_z = -0.1;
-    
-    
-    /* Registruju se callback funkcije. */
-    glutKeyboardFunc(on_keyboard);
-    glutReshapeFunc(on_reshape);
-    glutDisplayFunc(on_display);
-
-    /* Obavlja se OpenGL inicijalizacija. */
-    glClearColor(0.74902, 0.847059, 0.847059, 0);
-    glEnable(GL_DEPTH_TEST);
-    
-    postavi_teksture();
-
-    /* Program ulazi u glavnu petlju. */
-    glutMainLoop();
-
-    return 0;
 }
 
 static void postavi_teksture(void){
@@ -149,17 +165,6 @@ static void postavi_teksture(void){
                  GL_RGB, GL_UNSIGNED_BYTE, image->pixels);
     
 
-    glBindTexture(GL_TEXTURE_2D, names[1]);
-    glTexParameteri(GL_TEXTURE_2D,
-                    GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D,
-                    GL_TEXTURE_WRAP_T, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
-                 image->width, image->height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, image->pixels);
-
     /* Iskljucujemo aktivnu teksturu */
     glBindTexture(GL_TEXTURE_2D, 0);
 
@@ -194,7 +199,7 @@ static void on_keyboard(unsigned char key, int x, int y){
         break;
     case 'w':
     case 'W':
-        if(!kretanje_loptice) {
+        if(!kretanje_loptice && kretanje_lestvica) {
             loptica_na_lestvici = 0;
             glutTimerFunc(TIMER_INTERVAL, skok_loptice, TIMER_ID1);
             kretanje_loptice = 1;
@@ -212,14 +217,16 @@ static void skok_loptice(int value){
     
     if (value != TIMER_ID1)
         return;
-    dubina -= 0.1;
-    if(koordinata_z_loptice - koordinata_z_lestvice[nivo] > 0.75){
-        koordinata_y_loptice += brzina_y - 0.0001;
-        koordinata_z_loptice += brzina_z;
-    }
-    else{
-        koordinata_y_loptice -= brzina_y - 0.0001;
-        koordinata_z_loptice += brzina_z;
+    if(!izgubio){
+        dubina -= 0.1;
+        if(koordinata_z_loptice - koordinata_z_lestvice[nivo] > 0.75){
+            koordinata_y_loptice += brzina_y - 0.0001;
+            koordinata_z_loptice += brzina_z;
+        }
+        else{
+            koordinata_y_loptice -= brzina_y - 0.0001;
+            koordinata_z_loptice += brzina_z;
+        }
     }
     
     if (koordinata_z_loptice - koordinata_z_lestvice[nivo] < 0.01) {
@@ -228,15 +235,18 @@ static void skok_loptice(int value){
         koordinata_y_loptice -= brzina_y;
         if(!(koordinata_x_loptice <= koordinata_x_lestvice[nivo] + sirina/2 && 
            koordinata_x_loptice >= koordinata_x_lestvice[nivo] - sirina/2)){
-            nivo = 0;
-            koordinata_x_loptice = 0;
-            koordinata_y_loptice = -0.8; 
-            koordinata_z_loptice = 1000.5;
-            dubina = 1007;
-            loptica_na_lestvici = 0;
-            sirina = 1.2;
-            brzina_lestvice = 0.03;
-            glutPostRedisplay();
+            if(koordinata_y_lestvice >= -1){
+                koordinata_y_loptice -= 0.05;
+                izgubio = 1;
+                if(najbolji_rezultat <= nivo){
+                    najbolji_rezultat = nivo;
+        }
+                glutTimerFunc(TIMER_INTERVAL, skok_loptice, TIMER_ID1);
+            }
+            else{
+                inicijalizacija();
+                glutPostRedisplay();
+            }
         }
         else{
             nivo += 1;
@@ -317,27 +327,10 @@ static void on_display(void)
         glEnd();
         i = i - 20;
     }
-    /* Crta se zid kuce. */
-    /*glBindTexture(GL_TEXTURE_2D, names[1]);
-    glBegin(GL_QUADS);
-        glNormal3f(0, 0, 1);
 
-        glTexCoord2f(0, 0);
-        glVertex3f(-1.95, -0.9, 1003);
-
-        glTexCoord2f(1, 0);
-        glVertex3f(1.95, -0.9, 1003);
-
-        glTexCoord2f(1, 1);
-        glVertex3f(1.95, -0.9, 1001);
-
-        glTexCoord2f(0, 1);
-        glVertex3f(-1.95, -0.9, 1001);
-    glEnd();
-    */
-    /* Iskljucujemo aktivnu teksturu */
     glBindTexture(GL_TEXTURE_2D, 0);
     crtanje_lestvica();
+    dodajTekst();
     
     
     /* Nova slika se salje na ekran. */
@@ -384,14 +377,12 @@ void crtanje_loptice(){
     glMaterialf(GL_FRONT, GL_SHININESS, shininess);
     
     if(koordinata_x_loptice + 0.15 >= 1.9 || koordinata_x_loptice - 0.15 <= -1.9){
-        koordinata_x_loptice = 0;
-        koordinata_y_loptice = -0.8;
-        koordinata_z_loptice = 1000.5;
-        loptica_na_lestvici = 0;
-        dubina = 1007;
-        nivo = 0;
-        sirina = 1.2;
-        brzina_lestvice = 0.03;
+        if(najbolji_rezultat <= nivo){
+            najbolji_rezultat = nivo;
+        }
+        izgubio = 1;
+        inicijalizacija();
+        glutPostRedisplay();
     }
     
     glPushMatrix();
@@ -493,5 +484,79 @@ void crtanje_lestvica(){
             glutSolidCube(0.2);
         glPopMatrix();
     }
+}
+
+
+/*funkcija za dodavanje teksta*/
+void dodajTekst(void){
+    glDisable(GL_LIGHTING);
+    
+    /*niske u kojima cuvam tekst*/
+    char tekst1[MAX_BROJ_KARAKTERA], *p1;
+    /*upisivanje teksta u promenljivu*/
+    sprintf(tekst1, "Poeni:");
+    
+    char tekstZaNivo[MAX_BROJ_KARAKTERA], *p2;
+    sprintf(tekstZaNivo, "%d", nivo);
+    
+    /*pisanje jednog po jednog teksta pomocu funkcije glutBitmapCharacter*/
+    glPushMatrix();
+        glColor3f(1, 1, 1);
+        glTranslatef(-2, 0.9, dubina-7);
+        glRasterPos3f(0.2, 0.7, 0);
+        for(p1 = tekst1; *p1!= '\0'; p1++){
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *p1);
+        }
+    glPopMatrix();
+    
+    glPushMatrix();
+        glColor3f(1, 1, 1);
+        glTranslatef(-1.7, 0.9, dubina-7);
+        glRasterPos3f(0.2, 0.7, 0);
+        for(p2 = tekstZaNivo; *p2!= '\0'; p2++){
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *p2);
+        }
+    glPopMatrix();
+    
+    char tekst_za_najbolji_rez[MAX_BROJ_KARAKTERA], *p3;
+    sprintf(tekst_za_najbolji_rez, "Najbolji rezultat je:");
+    
+    glPushMatrix();
+        glColor3f(1, 1, 1);
+        glTranslatef(-2, 0.8, dubina-7);
+        glRasterPos3f(0.2, 0.7, 0);
+        for(p3 = tekst_za_najbolji_rez; *p3!= '\0'; p3++){
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *p3);
+        }
+    glPopMatrix();
+    
+    char rez[MAX_BROJ_KARAKTERA], *p4;
+    sprintf(rez, "%d", najbolji_rezultat);
+    
+    glPushMatrix();
+        glColor3f(1, 1, 1);
+        glTranslatef(-1.2, 0.8, dubina-7);
+        glRasterPos3f(0.2, 0.7, 0);
+        for(p4 = rez; *p4!= '\0'; p4++){
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *p4);
+        }
+    glPopMatrix();
+    
+    
+    char tekst_za_kraj[MAX_BROJ_KARAKTERA], *p5;
+    sprintf(tekst_za_kraj, "IZGUBILI STE!");
+    
+    if(izgubio){
+        glPushMatrix();
+        glColor3f(1, 1, 1);
+        glTranslatef(-0.5, 0, dubina-7);
+        glRasterPos3f(0.2, 0.7, 0);
+        for(p5 = tekst_za_kraj; *p5!= '\0'; p5++){
+            glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *p5);
+        }
+        glPopMatrix();
+    
+    }
+    
 }
 
