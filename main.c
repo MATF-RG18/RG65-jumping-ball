@@ -6,6 +6,8 @@
 
 
 
+
+
 #define FILENAME0 "more.bmp"
 
 #define TIMER_ID 0
@@ -15,7 +17,7 @@
 #define MAX_BROJ_KARAKTERA 256
 
 
-/* Deklaracije callback funkcija. */
+/* Deklaracije callback funkcija.*/
 static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
 static void on_timer(int value);
