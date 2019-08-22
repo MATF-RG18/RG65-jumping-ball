@@ -10,6 +10,7 @@
 
 #define TIMER_ID 0
 #define TIMER_ID1 1
+#define TIMER_ID2 2
 #define TIMER_INTERVAL 20
 #define MAX_BROJ_KARAKTERA 256
 
@@ -19,6 +20,8 @@ static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
 static void on_timer(int value);
 static void skok_loptice(int value);
+static void pad_loptice(int value);
+
 static void on_display(void);
 static void postavi_teksture(void);
 void dodajTekst(void);
@@ -50,6 +53,7 @@ static int nivo;
 static int najbolji_rezultat;
 static int izgubio;
 static int loptica_na_lestvici;
+static int pad_sa_lestvice;
 
 int main(int argc, char **argv){
     
@@ -123,6 +127,7 @@ static void inicijalizacija(){
     kretanje_lestvica = 0;
     kretanje_loptice = 0;
     loptica_na_lestvici = 0;
+    pad_sa_lestvice = 0;
     
     brzina_y = 0.06;
     brzina_z = -0.1;
@@ -190,12 +195,28 @@ static void on_keyboard(unsigned char key, int x, int y){
     case 'a':
     case 'A':
         koordinata_x_loptice -= brzina_loptice;
-        glutPostRedisplay();
+        if(loptica_na_lestvici && koordinata_x_loptice < koordinata_x_lestvice[nivo-1] - sirina/2 - 0.1 
+            && !pad_sa_lestvice){
+            izgubio = 1;
+            pad_sa_lestvice = 1;
+            glutTimerFunc(TIMER_INTERVAL, pad_loptice, TIMER_ID2);
+        }
+        if(!pad_sa_lestvice){
+            glutPostRedisplay();
+        }
         break;
     case 'd':
     case 'D':
         koordinata_x_loptice += brzina_loptice;
-        glutPostRedisplay();
+        if(loptica_na_lestvici && koordinata_x_loptice > koordinata_x_lestvice[nivo-1] + sirina/2 + 0.1
+            && !pad_sa_lestvice){
+            izgubio = 1;
+            pad_sa_lestvice = 1;
+            glutTimerFunc(TIMER_INTERVAL, pad_loptice, TIMER_ID2);
+        }
+        if(!pad_sa_lestvice){
+            glutPostRedisplay();
+        }
         break;
     case 'w':
     case 'W':
@@ -212,6 +233,25 @@ static void on_reshape(int width, int height){
     window_width = width;
     window_height = height;
 }
+
+
+static void pad_loptice(int value){
+    if (value != TIMER_ID2)
+        return;
+ 
+    if(koordinata_y_loptice >= -2){
+        koordinata_y_loptice -= 0.05;
+        glutTimerFunc(TIMER_INTERVAL, pad_loptice, TIMER_ID2);
+    } else {
+        if(najbolji_rezultat <= nivo){
+            najbolji_rezultat = nivo;
+        }
+        inicijalizacija();
+        glutPostRedisplay();
+    }
+    
+}
+
 
 static void skok_loptice(int value){
     
@@ -240,7 +280,7 @@ static void skok_loptice(int value){
                 izgubio = 1;
                 if(najbolji_rezultat <= nivo){
                     najbolji_rezultat = nivo;
-        }
+                }
                 glutTimerFunc(TIMER_INTERVAL, skok_loptice, TIMER_ID1);
             }
             else{
