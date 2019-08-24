@@ -5,38 +5,44 @@
 #include "image.h"
 
 
-
-
-
+/*makro za sliku*/
 #define FILENAME0 "more.bmp"
 
+/*makro za razlikovanje ID kod timer funkcija i broj milisekundi na koliko se pozivaju takve funkcije*/
 #define TIMER_ID 0
 #define TIMER_ID1 1
 #define TIMER_ID2 2
 #define TIMER_INTERVAL 20
+
+/*makro za maksimalan broj karaktera*/
 #define MAX_BROJ_KARAKTERA 256
 
+/*makro za gravitaciju*/
+#define GRAVITACIJA 0.0001;
 
-/* Deklaracije callback funkcija.*/
+
+
+/* Deklaracije callback funkcija*/
 static void on_keyboard(unsigned char key, int x, int y);
 static void on_reshape(int width, int height);
 static void on_timer(int value);
 static void skok_loptice(int value);
 static void pad_loptice(int value);
-
 static void on_display(void);
-static void postavi_teksture(void);
-void dodajTekst(void);
-static void inicijalizacija(void);
 
+static void inicijalizacija(void); /*deklaracija pocetnih vrednosti*/
+
+static void postavi_teksture(void); /*funkcija za dodavanje slike vode*/
+void dodajTekst(void); /*funckija za dodavanje teksta*/
+/*funckije za crtanje objekata na sceni*/
 void crtanje_loptice(void);
 void crtanje_postolja(void);
 void crtanje_lestvica(void);
 
 /* Identifikatori tekstura. */
-static GLuint names[2];
+static GLuint names[1];
 
-
+/*globalne promenljive za poziciju i brzinu loptice i lestvica*/
 static double koordinata_x_loptice, koordinata_y_loptice, koordinata_z_loptice;
 static double koordinata_x_lestvice[1000], koordinata_z_lestvice[1000];
 static double koordinata_y_lestvice;
@@ -46,48 +52,56 @@ static double brzina_lestvice;
 static double brzina_loptice;
 static double brzina_z, brzina_y;
 static double sirina;
-        
+
+/*poziciju kamere na z osi*/
 static double dubina;
 
+/*sirina i visina ekrana*/
 static int window_width, window_height;
-static int kretanje_lestvica, kretanje_loptice;
+
+/*promenljive za trenutni nivo i najbolji rezultat*/
 static int nivo;
 static int najbolji_rezultat;
+
+/*identifikatorske promenljive*/
+static int kretanje_lestvica, kretanje_loptice;
 static int izgubio;
 static int loptica_na_lestvici;
 static int pad_sa_lestvice;
 
 int main(int argc, char **argv){
     
-    /* Inicijalizuje se GLUT. */
+    /* Inicijalizuje se GLUT */
     glutInit(&argc, argv);
     glutInitDisplayMode(GLUT_RGB | GLUT_DEPTH | GLUT_DOUBLE);
 
-    /* Kreira se prozor. */
+    /* Kreira se prozor */
     glutInitWindowSize(700, 700);
     glutInitWindowPosition(100, 100);
     glutCreateWindow(argv[0]);
     
+    
     inicijalizacija();
-    /* Registruju se callback funkcije. */
+    /* Registruju se callback funkcije */
     glutKeyboardFunc(on_keyboard);
     glutReshapeFunc(on_reshape);
     glutDisplayFunc(on_display);
 
-    /* Obavlja se OpenGL inicijalizacija. */
+    /* Obavlja se OpenGL inicijalizacija */
     glClearColor(0.74902, 0.847059, 0.847059, 0);
     glEnable(GL_DEPTH_TEST);
     
     postavi_teksture();
 
-    /* Program ulazi u glavnu petlju. */
+    /* Program ulazi u glavnu petlju */
     glutMainLoop();
 
     return 0;
 }
 
-static void inicijalizacija(){
 
+static void inicijalizacija(){
+    /*postavljanje pocetnih vrednosti promenljivima*/
     srand(time(NULL));
     
     koordinata_x_loptice = 0;
@@ -104,10 +118,13 @@ static void inicijalizacija(){
     sirina = 1.2;
     unsigned int i = 0;
     koordinata_z_lestvice[0] = 999;
+    
     for(i = 0; i<1000; i++){
+        /*postavljanje vrednosti na z osi lestvicama*/
         if(i != 0)
             koordinata_z_lestvice[i] = koordinata_z_lestvice[i-1] - pomeraj;
         double random_broj = rand()/(float)RAND_MAX;
+        /*na slucajan nacin se bira x koordinata lestvicama i pravac kretanja*/
         int pozicija_x_koordinate;
         if(random_broj >=0.5)
             pozicija_x_koordinate = 1;
@@ -118,7 +135,7 @@ static void inicijalizacija(){
             brzina[i] = brzina_lestvice;
         else
             brzina[i] = -brzina_lestvice;
-        
+        /*postavljanje brzine kretanja lestvica*/
         if(i != 0 && (i % 10) == 0){
             brzina_lestvice += 0.005;
             sirina -= 0.001;
@@ -126,6 +143,7 @@ static void inicijalizacija(){
 
         koordinata_x_lestvice[i] = 2*pozicija_x_koordinate*rand()/(float)RAND_MAX;
     }
+    
     kretanje_lestvica = 0;
     kretanje_loptice = 0;
     loptica_na_lestvici = 0;
@@ -135,49 +153,6 @@ static void inicijalizacija(){
     brzina_z = -0.1;
 }
 
-static void postavi_teksture(void){
-    /* Objekat koji predstavlja teskturu ucitanu iz fajla. */
-    Image * image;
-    
-    /* Ukljucuju se teksture. */
-    glEnable(GL_TEXTURE_2D);
-
-    glTexEnvf(GL_TEXTURE_ENV,
-              GL_TEXTURE_ENV_MODE,
-              GL_REPLACE);
-
-    /*
-     * Inicijalizuje se objekat koji ce sadrzati teksture ucitane iz
-     * fajla.
-     */
-    image = image_init(0, 0);
-
-    /* Kreira se prva tekstura. */
-    image_read(image, FILENAME0);
-
-    /* Generisu se identifikatori tekstura. */
-    glGenTextures(2, names);
-
-    glBindTexture(GL_TEXTURE_2D, names[0]);
-    glTexParameteri(GL_TEXTURE_2D,
-                    GL_TEXTURE_WRAP_S, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D,
-                    GL_TEXTURE_WRAP_T, GL_CLAMP);
-    glTexParameteri(GL_TEXTURE_2D,
-                    GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,
-                    GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
-                 image->width, image->height, 0,
-                 GL_RGB, GL_UNSIGNED_BYTE, image->pixels);
-    
-
-    /* Iskljucujemo aktivnu teksturu */
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    /* Unistava se objekat za citanje tekstura iz fajla. */
-    image_done(image);
-}
 
 static void on_keyboard(unsigned char key, int x, int y){
     
@@ -196,6 +171,7 @@ static void on_keyboard(unsigned char key, int x, int y){
         break;
     case 'a':
     case 'A':
+        /*kretanje loptice u levu stranu, obrada slucaja ako loptica sklizne sa lestvice*/
         koordinata_x_loptice -= brzina_loptice;
         if(loptica_na_lestvici && koordinata_x_loptice < koordinata_x_lestvice[nivo-1] - sirina/2 - 0.1 
             && !pad_sa_lestvice){
@@ -209,6 +185,7 @@ static void on_keyboard(unsigned char key, int x, int y){
         break;
     case 'd':
     case 'D':
+        /*kretanje loptice u desnu stranu, obrada slucaja ako loptica sklizne sa lestvice*/
         koordinata_x_loptice += brzina_loptice;
         if(loptica_na_lestvici && koordinata_x_loptice > koordinata_x_lestvice[nivo-1] + sirina/2 + 0.1
             && !pad_sa_lestvice){
@@ -222,11 +199,25 @@ static void on_keyboard(unsigned char key, int x, int y){
         break;
     case 'w':
     case 'W':
+        /*skok loptice*/
         if(!kretanje_loptice && kretanje_lestvica) {
             loptica_na_lestvici = 0;
             glutTimerFunc(TIMER_INTERVAL, skok_loptice, TIMER_ID1);
             kretanje_loptice = 1;
         }
+        break;
+    case 'r':
+    case 'R':
+        /*igra krece ispocetka*/
+        inicijalizacija();
+        glutPostRedisplay();
+        break;
+    case 'p':
+    case 'P':
+        /*igra se pauzira*/
+        kretanje_lestvica = 0;
+        kretanje_loptice = 0;
+        glutPostRedisplay();
         break;
     }
 }
@@ -237,40 +228,106 @@ static void on_reshape(int width, int height){
 }
 
 
-static void pad_loptice(int value){
-    if (value != TIMER_ID2)
-        return;
- 
-    if(koordinata_y_loptice >= -2){
-        koordinata_y_loptice -= 0.05;
-        glutTimerFunc(TIMER_INTERVAL, pad_loptice, TIMER_ID2);
-    } else {
-        if(najbolji_rezultat <= nivo){
-            najbolji_rezultat = nivo;
-        }
-        inicijalizacija();
-        glutPostRedisplay();
-    }
+static void on_display(void){
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    /* Podesava se vidna tacka. */
+    glViewport(0, 0, window_width, window_height);
+
+    /* Podesava se projekcija. */
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluPerspective(30, (float) window_width / window_height, 1, 1000);
     
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    gluLookAt(0, 0, dubina, 
+              0, 0, 0, 
+              0, 1, 0);
+    
+    glEnable(GL_DEPTH_TEST);
+    
+    /*pozivanje funkcija za crtanje objekata*/
+    crtanje_loptice();
+    crtanje_postolja();
+    
+    /*postavljanje slike vode*/
+    unsigned int i = 1000;
+    while(i>= 20){
+            
+        glBindTexture(GL_TEXTURE_2D, names[0]);
+        glBegin(GL_QUADS);
+            glNormal3f(0, 0, 1);
+
+            glTexCoord2f(0, 0);
+            glVertex3f(-2, -1, i);
+
+            glTexCoord2f(1, 0);
+            glVertex3f(2, -1, i);
+
+            glTexCoord2f(1, 1);
+            glVertex3f(2, -1, i-20);
+
+            glTexCoord2f(0, 1);
+            glVertex3f(-2, -1, i-20);
+        glEnd();
+        i = i - 20;
+    }
+
+    glBindTexture(GL_TEXTURE_2D, 0);
+    
+    crtanje_lestvica();
+    dodajTekst();
+    
+    
+    /* Nova slika se salje na ekran. */
+    glutSwapBuffers();
 }
 
+/*funkcije za kretanje lestvica*/
+static void on_timer(int value){
+    
+    if (value != TIMER_ID)
+        return;
+    unsigned int i = 0;
+    /*ukoliko lestvica dodje do ivice ekrana, menja smer kretanja*/
+    for(i = 0; i<1000; i++){
+        koordinata_x_lestvice[i] += brzina[i];
+        
+        if(koordinata_x_lestvice[i] + sirina/2 >= 1.95 || koordinata_x_lestvice[i] - sirina/2 <= -1.95)
+            brzina[i] *= -1;
+    }
+    
+    /*ako je loptica na lestvici, loptica se krece zajedno sa lestvicom*/
+    if(loptica_na_lestvici){
+        koordinata_x_loptice += brzina[nivo-1];
+    }
+    glutPostRedisplay();
+    
+    if (kretanje_lestvica) {
+        glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
+    }
+}
 
+/*funkcija za skok loptice*/
 static void skok_loptice(int value){
     
     if (value != TIMER_ID1)
         return;
+    
     if(!izgubio){
+        /*pomeranje loptice po y i z osi* i priblizivanje kamere*/
         dubina -= 0.1;
         if(koordinata_z_loptice - koordinata_z_lestvice[nivo] > 0.75){
-            koordinata_y_loptice += brzina_y - 0.0001;
+            koordinata_y_loptice += brzina_y - GRAVITACIJA;
             koordinata_z_loptice += brzina_z;
         }
         else{
-            koordinata_y_loptice -= brzina_y - 0.0001;
+            koordinata_y_loptice -= brzina_y - GRAVITACIJA;
             koordinata_z_loptice += brzina_z;
         }
     }
     
+    /*detekcija sudara loptice i lestvice*/
     if (koordinata_z_loptice - koordinata_z_lestvice[nivo] < 0.01) {
         kretanje_loptice = 0;
         
@@ -303,108 +360,55 @@ static void skok_loptice(int value){
     
 }
 
-static void on_timer(int value){
-    
-    if (value != TIMER_ID)
+
+/*funkcija za obradu pada loptice sa lestvice*/
+static void pad_loptice(int value){
+    if (value != TIMER_ID2)
         return;
-    unsigned int i = 0;
-    for(i = 0; i<1000; i++){
-        koordinata_x_lestvice[i] += brzina[i];
-        
-        if(koordinata_x_lestvice[i] + sirina/2 >= 1.95 || koordinata_x_lestvice[i] - sirina/2 <= -1.95)
-            brzina[i] *= -1;
-
-        
+    /*propadanje loptice u vodu*/
+    if(koordinata_y_loptice >= -2){
+        koordinata_y_loptice -= 0.05;
+        glutTimerFunc(TIMER_INTERVAL, pad_loptice, TIMER_ID2);
+    } else {
+        /*azuriranje najboljeg rezultata*/
+        if(najbolji_rezultat <= nivo){
+            najbolji_rezultat = nivo;
+        }
+        inicijalizacija();
+        glutPostRedisplay();
     }
-    if(loptica_na_lestvici){
-        koordinata_x_loptice += brzina[nivo-1];
-    }
-    glutPostRedisplay();
     
-    if (kretanje_lestvica) {
-        glutTimerFunc(TIMER_INTERVAL, on_timer, TIMER_ID);
-    }
 }
 
-static void on_display(void)
-{
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    /* Podesava se vidna tacka. */
-    glViewport(0, 0, window_width, window_height);
+/*funckije za crtanje objekata na sceni*/
 
-    /* Podesava se projekcija. */
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(30, (float) window_width / window_height, 1, 1000);
-    
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    gluLookAt(0, 0, dubina, 
-              0, 0, 0, 
-              0, 1, 0);
-    glEnable(GL_DEPTH_TEST);
-    crtanje_loptice();
-
-    crtanje_postolja();
-    
-
-    unsigned int i = 1000;
-    while(i>= 20){
-            
-        glBindTexture(GL_TEXTURE_2D, names[0]);
-        glBegin(GL_QUADS);
-            glNormal3f(0, 0, 1);
-
-            glTexCoord2f(0, 0);
-            glVertex3f(-2, -1, i);
-
-            glTexCoord2f(1, 0);
-            glVertex3f(2, -1, i);
-
-            glTexCoord2f(1, 1);
-            glVertex3f(2, -1, i-20);
-
-            glTexCoord2f(0, 1);
-            glVertex3f(-2, -1, i-20);
-        glEnd();
-        i = i - 20;
-    }
-
-    glBindTexture(GL_TEXTURE_2D, 0);
-    crtanje_lestvica();
-    dodajTekst();
-    
-    
-    /* Nova slika se salje na ekran. */
-    glutSwapBuffers();
-}
-
+/*funckija za crtanje loptice*/
 void crtanje_loptice(){
-    /* Pozicija svetla (u pitanju je direkcionalno svetlo). */
+    /* Pozicija svetla */
     GLfloat pozicija_svetla[] = { 1, 1, 1007, 0 };
 
-    /* Ambijentalna boja svetla. */
+    /* Ambijentalna boja svetla */
     GLfloat ambijentalno_svetlo[] = { 0.35, 0.35, 0.35, 1 };
 
-    /* Difuzna boja svetla. */
+    /* Difuzna boja svetla */
     GLfloat difuzno_svetlo[] = { 0.7, 0.7, 0.7, 1 };
 
-    /* Spekularna boja svetla. */
+    /* Spekularna boja svetla */
     GLfloat spekularno_svetlo[] = { 0.9, 0.9, 0.9, 1 };
 
-    /* Koeficijenti ambijentalne refleksije materijala. */
+    /* Koeficijenti ambijentalne refleksije materijala */
     GLfloat ambijentalna_refleksija[] = { 1.0, 1.0, 0.1, 1 };
 
-    /* Koeficijenti difuzne refleksije materijala. */
+    /* Koeficijenti difuzne refleksije materijala */
     GLfloat difuzna_refleksija[] = { 1.0, 1.0, 0.0, 1 };
 
-    /* Koeficijenti spekularne refleksije materijala. */
+    /* Koeficijenti spekularne refleksije materijala */
     GLfloat spekularna_refleksija[] = { 1, 1, 1, 1 };
 
-    /* Koeficijent glatkosti materijala. */
+    /* Koeficijent glatkosti materijala */
     GLfloat shininess = 20;
 
-    /* Ukljucuje se osvjetljenje i podesavaju parametri svetla. */
+    /* Ukljucuje se osvjetljenje i podesavaju parametri svetla */
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
     glLightfv(GL_LIGHT0, GL_POSITION, pozicija_svetla);
@@ -412,12 +416,13 @@ void crtanje_loptice(){
     glLightfv(GL_LIGHT0, GL_DIFFUSE, difuzno_svetlo);
     glLightfv(GL_LIGHT0, GL_SPECULAR, spekularno_svetlo);
 
-    /* Podesavaju se parametri materijala. */
+    /* Podesavaju se parametri materijala */
     glMaterialfv(GL_FRONT, GL_AMBIENT, ambijentalna_refleksija);
     glMaterialfv(GL_FRONT, GL_DIFFUSE, difuzna_refleksija);
     glMaterialfv(GL_FRONT, GL_SPECULAR, spekularna_refleksija);
     glMaterialf(GL_FRONT, GL_SHININESS, shininess);
     
+    /*obrada slucaja kad loptica dotakne ivicu ekrana*/
     if(koordinata_x_loptice + 0.15 >= 1.9 || koordinata_x_loptice - 0.15 <= -1.9){
         if(najbolji_rezultat <= nivo){
             najbolji_rezultat = nivo;
@@ -426,7 +431,7 @@ void crtanje_loptice(){
         inicijalizacija();
         glutPostRedisplay();
     }
-    
+    /*crtanje loptice*/
     glPushMatrix();
         glTranslatef(koordinata_x_loptice, koordinata_y_loptice, koordinata_z_loptice);
         glutSolidSphere(0.15, 500, 500);
@@ -434,33 +439,23 @@ void crtanje_loptice(){
         
 }
 
-
+/*crtanje postolja na kom loptica na pocetku stoji*/
 void crtanje_postolja(){
+    /*Iskljucivanje osvetljena*/
     glDisable(GL_LIGHTING);
+    
     GLfloat pozicija_svetla[] = { 1, 200, 1007, 1 };
 
-    /* Ambijentalna boja svetla. */
     GLfloat ambijentalno_svetlo[] = { 0.35, 0.35, 0.35, 1 };
-
-    /* Difuzna boja svetla. */
     GLfloat difuzno_svetlo[] = { 0.75, 0.75, 0.75, 1 };
-
-    /* Spekularna boja svetla. */
     GLfloat spekularno_svetlo[] = { 0.9, 0.9, 0.9, 1 };
-
-    /* Koeficijenti ambijentalne refleksije materijala. */
+    
     GLfloat ambijentalna_refleksija[] = { 0.0, 1.0, 0.0, 1 };
-
-    /* Koeficijenti difuzne refleksije materijala. */
     GLfloat difuzna_refleksija[] = { 0.0, 0.6, 0.0, 1 };
-
-    /* Koeficijenti spekularne refleksije materijala. */
     GLfloat spekularna_refleksija[] = { 1, 1, 1, 1 };
 
-    /* Koeficijent glatkosti materijala. */
     GLfloat shininess = 40;
 
-    /* Ukljucuje se osvjetljenje i podesavaju parametri svetla. */
     glEnable(GL_LIGHTING);
     glEnable(GL_LIGHT0);
     glLightfv(GL_LIGHT0, GL_POSITION, pozicija_svetla);
@@ -468,12 +463,12 @@ void crtanje_postolja(){
     glLightfv(GL_LIGHT0, GL_DIFFUSE, difuzno_svetlo);
     glLightfv(GL_LIGHT0, GL_SPECULAR, spekularno_svetlo);
 
-    /* Podesavaju se parametri materijala. */
     glMaterialfv(GL_FRONT, GL_AMBIENT, ambijentalna_refleksija);
     glMaterialfv(GL_FRONT, GL_DIFFUSE, difuzna_refleksija);
     glMaterialfv(GL_FRONT, GL_SPECULAR, spekularna_refleksija);
     glMaterialf(GL_FRONT, GL_SHININESS, shininess);
-
+    
+    /*crtanje 3 kvadra*/
     glPushMatrix();
             glTranslatef(0, -1.45, 1000.2);
             glScalef(7, 1, 1.2);
@@ -492,9 +487,11 @@ void crtanje_postolja(){
     glPopMatrix();
 }
 
+
+/*crtanje lestvica po kojima loptica skace*/
 void crtanje_lestvica(){    
     glDisable(GL_LIGHTING);
-    
+    /*Podesavanje osvetljenja za sve loptice*/
     unsigned int i = 0;
     for(i=0; i<1000; i++){
         GLfloat pozicija_svetla[] = { 1, 100, 1007, 0 };
@@ -519,7 +516,7 @@ void crtanje_lestvica(){
         glMaterialfv(GL_FRONT, GL_DIFFUSE, difuzna_refleksija);
         glMaterialfv(GL_FRONT, GL_SPECULAR, spekularna_refleksija);
         glMaterialf(GL_FRONT, GL_SHININESS, shininess);
-        
+        /*crtanje lestvica*/
         glPushMatrix();
             glTranslatef(koordinata_x_lestvice[i], koordinata_y_lestvice, koordinata_z_lestvice[i]);
             glScalef(6, 0.5, 3);
@@ -533,7 +530,7 @@ void crtanje_lestvica(){
 void dodajTekst(void){
     glDisable(GL_LIGHTING);
     
-    /*niske u kojima cuvam tekst*/
+    /*niska u kojima se cuva tekst*/
     char tekst1[MAX_BROJ_KARAKTERA], *p1;
     /*upisivanje teksta u promenljivu*/
     sprintf(tekst1, "Poeni:");
@@ -561,7 +558,7 @@ void dodajTekst(void){
     glPopMatrix();
     
     char tekst_za_najbolji_rez[MAX_BROJ_KARAKTERA], *p3;
-    sprintf(tekst_za_najbolji_rez, "Najbolji rezultat je:");
+    sprintf(tekst_za_najbolji_rez, "Najbolji rezultat:");
     
     glPushMatrix();
         glColor3f(1, 1, 1);
@@ -577,7 +574,7 @@ void dodajTekst(void){
     
     glPushMatrix();
         glColor3f(1, 1, 1);
-        glTranslatef(-1.2, 0.8, dubina-7);
+        glTranslatef(-1.3, 0.8, dubina-7);
         glRasterPos3f(0.2, 0.7, 0);
         for(p4 = rez; *p4!= '\0'; p4++){
             glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *p4);
@@ -600,5 +597,46 @@ void dodajTekst(void){
     
     }
     
+}
+
+static void postavi_teksture(void){
+    /* Objekat koji predstavlja teskturu ucitanu iz fajla*/
+    Image * image;
+    
+    /* Ukljucuju se teksture*/
+    glEnable(GL_TEXTURE_2D);
+
+    glTexEnvf(GL_TEXTURE_ENV,
+              GL_TEXTURE_ENV_MODE,
+              GL_REPLACE);
+
+    /*Inicijalizuje se objekat koji ce sadrzati teksture ucitane iz fajla*/
+    image = image_init(0, 0);
+
+    /* Kreira se prva tekstura */
+    image_read(image, FILENAME0);
+
+    /* Generisu se identifikatori tekstura */
+    glGenTextures(1, names);
+
+    glBindTexture(GL_TEXTURE_2D, names[0]);
+    glTexParameteri(GL_TEXTURE_2D,
+                    GL_TEXTURE_WRAP_S, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D,
+                    GL_TEXTURE_WRAP_T, GL_CLAMP);
+    glTexParameteri(GL_TEXTURE_2D,
+                    GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,
+                    GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB,
+                 image->width, image->height, 0,
+                 GL_RGB, GL_UNSIGNED_BYTE, image->pixels);
+    
+
+    /* Iskljucuje se aktivnu teksturu */
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    /* Unistava se objekat za citanje tekstura iz fajla*/
+    image_done(image);
 }
 
